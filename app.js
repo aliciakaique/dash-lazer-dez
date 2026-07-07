@@ -79,7 +79,6 @@ function setupEventListeners() {
 
 function getUniqueValues(column) {
     const values = globalData.map(row => row[column]).filter(v => v);
-    // Algumas colunas têm múltiplos valores (ex: Tipologia "ST, 1Q"), então dividimos e aparamos
     let splitValues = [];
     values.forEach(val => {
         val.split(',').forEach(item => {
@@ -104,7 +103,7 @@ function populateFilters() {
     const statusSelect = document.getElementById('filter-status');
     statusObj.forEach(s => s && statusSelect.add(new Option(s, s)));
 
-    // Tipologia (como pode ter valores compostos, usa getUniqueValues)
+    // Tipologia
     const tipologias = getUniqueValues('Tipologia');
     const tipoSelect = document.getElementById('filter-tipologia');
     tipologias.forEach(t => tipoSelect.add(new Option(t, t)));
@@ -112,6 +111,7 @@ function populateFilters() {
     populateProfileAndCompareSelects();
 }
 
+// CORREÇÃO: Filtra para exibir apenas empreendimentos únicos nos componentes visuais de escolha
 function populateProfileAndCompareSelects() {
     const selectProfile = document.getElementById('select-profile');
     const compareBox = document.getElementById('compare-checkboxes');
@@ -119,15 +119,21 @@ function populateProfileAndCompareSelects() {
     selectProfile.innerHTML = '<option value="">Selecione um Empreendimento...</option>';
     compareBox.innerHTML = '';
 
+    const nomesProcessados = new Set();
+
     filteredData.forEach(d => {
-        // Select Profile
-        selectProfile.add(new Option(d.Empreendimento, d.Empreendimento));
-        
-        // Checkboxes Comparison
-        const lbl = document.createElement('label');
-        lbl.className = 'inline-flex items-center text-xs bg-white border border-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-100';
-        lbl.innerHTML = `<input type="checkbox" value="${d.Empreendimento}" class="mr-1 compare-chk form-checkbox h-3 w-3 text-blue-600 rounded-sm"> <span class="truncate max-w-[100px]">${d.Empreendimento}</span>`;
-        compareBox.appendChild(lbl);
+        if (!nomesProcessados.has(d.Empreendimento)) {
+            nomesProcessados.add(d.Empreendimento);
+
+            // Select Profile
+            selectProfile.add(new Option(d.Empreendimento, d.Empreendimento));
+            
+            // Checkboxes Comparison
+            const lbl = document.createElement('label');
+            lbl.className = 'inline-flex items-center text-xs bg-white border border-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-100';
+            lbl.innerHTML = `<input type="checkbox" value="${d.Empreendimento}" class="mr-1 compare-chk form-checkbox h-3 w-3 text-blue-600 rounded-sm"> <span class="truncate max-w-[100px]">${d.Empreendimento}</span>`;
+            compareBox.appendChild(lbl);
+        }
     });
 }
 
@@ -154,10 +160,22 @@ function updateDashboard() {
     updateCharts();
 }
 
+// CORREÇÃO: Calcula os KPIs utilizando a lista consolidada (Distinct) de Empreendimentos
 function updateKPIs() {
-    document.getElementById('kpi-total').innerText = filteredData.length;
+    // Consolida apenas registros únicos para a contagem real
+    const projetosUnicos = [];
+    const nomesProcessados = new Set();
+    
+    filteredData.forEach(row => {
+        if (!nomesProcessados.has(row.Empreendimento)) {
+            nomesProcessados.add(row.Empreendimento);
+            projetosUnicos.push(row);
+        }
+    });
 
-    if (filteredData.length === 0) {
+    document.getElementById('kpi-total').innerText = projetosUnicos.length;
+
+    if (projetosUnicos.length === 0) {
         document.getElementById('kpi-avg').innerText = '0';
         document.getElementById('kpi-top').innerText = '-';
         return;
@@ -166,7 +184,7 @@ function updateKPIs() {
     let totalItems = 0;
     let itemCounts = {};
 
-    filteredData.forEach(row => {
+    projetosUnicos.forEach(row => {
         let countForThisProject = 0;
         LAZER_COLUMNS.forEach(col => {
             if (row[col] && row[col].trim() !== '') {
@@ -177,7 +195,7 @@ function updateKPIs() {
         totalItems += countForThisProject;
     });
 
-    const avg = (totalItems / filteredData.length).toFixed(1);
+    const avg = (totalItems / projetosUnicos.length).toFixed(1);
     document.getElementById('kpi-avg').innerText = avg;
 
     // Encontrar o mais frequente
@@ -186,18 +204,28 @@ function updateKPIs() {
     for (const [item, count] of Object.entries(itemCounts)) {
         if (count > maxCount) {
             maxCount = count;
-            topItem = item.replace(/_/g, ' '); // Formatar para exibição
+            topItem = item.replace(/_/g, ' ');
         }
     }
     document.getElementById('kpi-top').innerText = `${topItem} (${maxCount})`;
 }
 
+// CORREÇÃO: Atualiza os gráficos mapeando apenas os itens dos empreendimentos únicos
 function updateCharts() {
-    // Calcular dados para Ranking
     let itemCounts = {};
     let categoryCounts = {};
 
+    const projetosUnicos = [];
+    const nomesProcessados = new Set();
+    
     filteredData.forEach(row => {
+        if (!nomesProcessados.has(row.Empreendimento)) {
+            nomesProcessados.add(row.Empreendimento);
+            projetosUnicos.push(row);
+        }
+    });
+
+    projetosUnicos.forEach(row => {
         LAZER_COLUMNS.forEach(col => {
             if (row[col] && row[col].trim() !== '') {
                 itemCounts[col] = (itemCounts[col] || 0) + 1;
@@ -257,6 +285,7 @@ function drawChart(canvasId, type, data, extraOptions = {}) {
     });
 }
 
+// CORREÇÃO: Agrupa as tipologias de volta na visualização do Card de Detalhes
 function updateProfileCard() {
     const projName = document.getElementById('select-profile').value;
     const card = document.getElementById('profile-card');
@@ -269,10 +298,14 @@ function updateProfileCard() {
     const proj = globalData.find(d => d.Empreendimento === projName);
     if (!proj) return;
 
+    // Busca todas as linhas desse prédio para agrupar as tipologias que ele possui
+    const todasAsLinhasDoPredio = globalData.filter(d => d.Empreendimento === projName);
+    const todasTipologias = [...new Set(todasAsLinhasDoPredio.map(d => d.Tipologia))].join(', ');
+
     document.getElementById('prof-nome').innerText = proj.Empreendimento;
     document.getElementById('prof-construtora').innerText = proj.Construtora || 'N/I';
     document.getElementById('prof-bairro').innerText = proj.Bairro || 'N/I';
-    document.getElementById('prof-tipo').innerText = proj.Tipologia || 'N/I';
+    document.getElementById('prof-tipo').innerText = todasTipologias || 'N/I'; // Exibe agrupado
     document.getElementById('prof-publico').innerText = proj.Publico || 'N/I';
     document.getElementById('prof-entrega').innerText = proj.Entrega || 'N/I';
     document.getElementById('prof-status').innerText = proj.Status || 'N/I';
@@ -292,6 +325,7 @@ function updateProfileCard() {
     card.classList.remove('hidden');
 }
 
+// CORREÇÃO: Garante a consistência e reagrupamento de tipologias na tabela comparativa
 function updateComparisonTable() {
     const checkboxes = document.querySelectorAll('.compare-chk:checked');
     const thead = document.getElementById('compare-head');
@@ -299,7 +333,6 @@ function updateComparisonTable() {
     
     if (checkboxes.length > 3) {
         alert("Por favor, selecione no máximo 3 empreendimentos para comparar.");
-        // Uncheck the last one clicked
         checkboxes[checkboxes.length - 1].checked = false;
         return;
     }
@@ -338,14 +371,22 @@ function updateComparisonTable() {
     basicAttributes.forEach(attr => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="px-4 py-2 font-semibold text-slate-700 bg-slate-50">${attr.label}</td>`;
+        
         selectedProjects.forEach(proj => {
-            tr.innerHTML += `<td class="px-4 py-2 border-l border-slate-100">${proj[attr.key] || '-'}</td>`;
+            let valorExibicao = proj[attr.key] || '-';
+            
+            // Se for tipologia, junta todas as tipologias reais do banco para não exibir duplicado ou incompleto
+            if (attr.key === 'Tipologia') {
+                const linhasDoPredio = globalData.filter(d => d.Empreendimento === proj.Empreendimento);
+                valorExibicao = [...new Set(linhasDoPredio.map(d => d.Tipologia))].join(', ');
+            }
+
+            tr.innerHTML += `<td class="px-4 py-2 border-l border-slate-100">${valorExibicao}</td>`;
         });
         tbody.appendChild(tr);
     });
 
     // Build Rows: Itens de Lazer
-    // Apenas mostrar a linha se pelo menos 1 dos projetos selecionados tiver o item
     LAZER_COLUMNS.forEach(col => {
         const anyHasItem = selectedProjects.some(proj => proj[col] && proj[col].trim() !== '');
         
