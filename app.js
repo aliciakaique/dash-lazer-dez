@@ -1,365 +1,333 @@
-// Dicionário de Categorias de Lazer baseado na análise de mercado
-const CATEGORY_MAP = {
-    'Academia_Interna': 'Bem-Estar',
-    'Academia_Externa': 'Bem-Estar',
-    'Beach_Point': 'Serviços',
-    'Bicicletario': 'Mobilidade',
-    'Churrasqueira': 'Social/Eventos',
-    'Coworking': 'Trabalho/Estudo',
-    'Delivery': 'Serviços',
-    'Espaco_Gourmet': 'Social/Eventos',
-    'Espaco_Kids': 'Infantil',
-    'Bike_Sharing': 'Mobilidade',
-    'Espaco_Teen': 'Entretenimento',
-    'Espaco_Zen': 'Bem-Estar',
-    'Grab_Go': 'Serviços',
-    'Lavanderia': 'Serviços',
-    'Lounge': 'Bem-Estar',
-    'Market': 'Serviços',
-    'Pet_Care': 'Pet',
-    'Pet_Park': 'Pet',
-    'Piscina': 'Aquático',
-    'Playground': 'Infantil',
-    'Pub_Jogos': 'Entretenimento',
-    'Quadra': 'Esporte',
-    'Sala_Ioga_Pilates': 'Bem-Estar',
-    'Sala_Reuniao': 'Trabalho/Estudo',
-    'Salao_Festas': 'Social/Eventos',
-    'Sala_Massagem': 'Bem-Estar',
-    'Sauna': 'Bem-Estar',
-    'Ambientes_Extras': 'Diferenciais'
-};
+/* ==========================================================================
+   MARKET INTEL DASHBOARD - CORE APPLICATION JAVASCRIPT
+   Objetivo: Inteligência de dados imobiliários com agregação por itens únicos
+   ========================================================================== */
 
-const LAZER_COLUMNS = Object.keys(CATEGORY_MAP);
+// 1. VARIÁVEIS GERAIS DE ESTADO DA APLICAÇÃO
+let dadosOriginais = [];
+let dadosFiltrados = [];
+let graficoBairrosInstance = null;
+let graficoStatusInstance = null;
 
-let globalData = [];
-let filteredData = [];
-let charts = {};
+// Lista canônica de colunas que representam itens de lazer para processamento dinâmico
+const colunasLazer = [
+    'Academia_Interna', 'Academia_Externa', 'Beach_Point', 'Bicicletario', 
+    'Churrasqueira', 'Coworking', 'Delivery', 'Espaco_Gourmet', 'Espaco_Kids', 
+    'Bike_Sharing', 'Espaco_Teen', 'Espaco_Zen', 'Grab_Go', 'Lavanderia', 
+    'Lounge', 'Market', 'Pet_Care', 'Pet_Park', 'Piscina', 'Playground', 
+    'Pub_Jogos', 'Quadra', 'Sala_Ioga_Pilates', 'Sala_Reuniao', 'Salao_Festas', 
+    'Sala_Massagem', 'Sauna', 'Ambientes_Extras'
+];
 
-// Inicialização da Aplicação
+// 2. INICIALIZAÇÃO DA APLICAÇÃO (DOM READY)
 document.addEventListener('DOMContentLoaded', () => {
+    carregarDados();
+    configurarEventosFiltros();
+});
+
+// 3. CARGA E PREPARAÇÃO DOS DADOS VIA PAPAPARSE
+function carregarDados() {
     Papa.parse('dados_concorrencia.csv', {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
-            globalData = results.data;
-            filteredData = [...globalData];
-            initDashboard();
+            dadosOriginais = results.data;
+            dadosFiltrados = [...dadosOriginais];
+            
+            // Popular os componentes visuais pela primeira vez
+            inicializarFiltrosDinamicos();
+            atualizarDashboard();
         },
         error: function(err) {
-            console.error("Erro ao ler o CSV: ", err);
-            alert("Erro ao carregar os dados. Verifique se o arquivo dados_concorrencia.csv está na mesma pasta.");
+            console.error("Erro crítico ao ler a base de dados CSV: ", err);
         }
     });
-});
-
-function initDashboard() {
-    populateFilters();
-    updateDashboard();
-    setupEventListeners();
 }
 
-function setupEventListeners() {
-    document.getElementById('filter-bairro').addEventListener('change', handleFilterChange);
-    document.getElementById('filter-tipologia').addEventListener('change', handleFilterChange);
-    document.getElementById('filter-status').addEventListener('change', handleFilterChange);
-    document.getElementById('btn-clear-filters').addEventListener('click', () => {
-        document.getElementById('filter-bairro').value = 'Todos';
-        document.getElementById('filter-tipologia').value = 'Todos';
-        document.getElementById('filter-status').value = 'Todos';
-        handleFilterChange();
-    });
-    document.getElementById('select-profile').addEventListener('change', updateProfileCard);
-    // Delegação de eventos para checkboxes dinâmicos de comparação
-    document.getElementById('compare-checkboxes').addEventListener('change', (e) => {
-        if(e.target.tagName === 'INPUT') updateComparisonTable();
-    });
-}
-
-function getUniqueValues(column) {
-    const values = globalData.map(row => row[column]).filter(v => v);
-    // Algumas colunas têm múltiplos valores (ex: Tipologia "ST, 1Q"), então dividimos e aparamos
-    let splitValues = [];
-    values.forEach(val => {
-        val.split(',').forEach(item => {
-            let cleanItem = item.trim().replace(/"/g, '');
-            if(cleanItem && !splitValues.includes(cleanItem)) {
-                splitValues.push(cleanItem);
-            }
-        });
-    });
-    return splitValues.sort();
-}
-
-function populateFilters() {
-    const bairros = [...new Set(globalData.map(d => d.Bairro))].sort();
-    const statusObj = [...new Set(globalData.map(d => d.Status))].sort();
-    
-    // Bairros
-    const bairroSelect = document.getElementById('filter-bairro');
-    bairros.forEach(b => b && bairroSelect.add(new Option(b, b)));
-
-    // Status
-    const statusSelect = document.getElementById('filter-status');
-    statusObj.forEach(s => s && statusSelect.add(new Option(s, s)));
-
-    // Tipologia (como pode ter valores compostos, usa getUniqueValues)
-    const tipologias = getUniqueValues('Tipologia');
-    const tipoSelect = document.getElementById('filter-tipologia');
-    tipologias.forEach(t => tipoSelect.add(new Option(t, t)));
-
-    populateProfileAndCompareSelects();
-}
-
-function populateProfileAndCompareSelects() {
-    const selectProfile = document.getElementById('select-profile');
-    const compareBox = document.getElementById('compare-checkboxes');
-    
-    selectProfile.innerHTML = '<option value="">Selecione um Empreendimento...</option>';
-    compareBox.innerHTML = '';
-
-    filteredData.forEach(d => {
-        // Select Profile
-        selectProfile.add(new Option(d.Empreendimento, d.Empreendimento));
-        
-        // Checkboxes Comparison
-        const lbl = document.createElement('label');
-        lbl.className = 'inline-flex items-center text-xs bg-white border border-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-100';
-        lbl.innerHTML = `<input type="checkbox" value="${d.Empreendimento}" class="mr-1 compare-chk form-checkbox h-3 w-3 text-blue-600 rounded-sm"> <span class="truncate max-w-[100px]">${d.Empreendimento}</span>`;
-        compareBox.appendChild(lbl);
-    });
-}
-
-function handleFilterChange() {
-    const b = document.getElementById('filter-bairro').value;
-    const t = document.getElementById('filter-tipologia').value;
-    const s = document.getElementById('filter-status').value;
-
-    filteredData = globalData.filter(d => {
-        const matchBairro = b === 'Todos' || d.Bairro === b;
-        const matchStatus = s === 'Todos' || d.Status === s;
-        const matchTipo = t === 'Todos' || d.Tipologia.includes(t);
-        return matchBairro && matchStatus && matchTipo;
-    });
-
-    updateDashboard();
-    populateProfileAndCompareSelects();
-    document.getElementById('profile-card').classList.add('hidden');
-    updateComparisonTable();
-}
-
-function updateDashboard() {
-    updateKPIs();
-    updateCharts();
-}
-
-function updateKPIs() {
-    document.getElementById('kpi-total').innerText = filteredData.length;
-
-    if (filteredData.length === 0) {
-        document.getElementById('kpi-avg').innerText = '0';
-        document.getElementById('kpi-top').innerText = '-';
-        return;
-    }
-
-    let totalItems = 0;
-    let itemCounts = {};
-
-    filteredData.forEach(row => {
-        let countForThisProject = 0;
-        LAZER_COLUMNS.forEach(col => {
-            if (row[col] && row[col].trim() !== '') {
-                countForThisProject++;
-                itemCounts[col] = (itemCounts[col] || 0) + 1;
-            }
-        });
-        totalItems += countForThisProject;
-    });
-
-    const avg = (totalItems / filteredData.length).toFixed(1);
-    document.getElementById('kpi-avg').innerText = avg;
-
-    // Encontrar o mais frequente
-    let topItem = '-';
-    let maxCount = 0;
-    for (const [item, count] of Object.entries(itemCounts)) {
-        if (count > maxCount) {
-            maxCount = count;
-            topItem = item.replace(/_/g, ' '); // Formatar para exibição
+// 4. CONFIGURAÇÃO DOS ESCUTADORES DE FILTROS
+function configurarEventosFiltros() {
+    const filtrosSelect = ['filter-bairro', 'filter-tipologia', 'filter-status', 'filter-construtora'];
+    filtrosSelect.forEach(id => {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.addEventListener('change', aplicarFiltros);
         }
-    }
-    document.getElementById('kpi-top').innerText = `${topItem} (${maxCount})`;
-}
-
-function updateCharts() {
-    // Calcular dados para Ranking
-    let itemCounts = {};
-    let categoryCounts = {};
-
-    filteredData.forEach(row => {
-        LAZER_COLUMNS.forEach(col => {
-            if (row[col] && row[col].trim() !== '') {
-                itemCounts[col] = (itemCounts[col] || 0) + 1;
-                let cat = CATEGORY_MAP[col];
-                categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-            }
-        });
     });
 
-    // Chart 1: Ranking (Top 10)
-    const sortedItems = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    drawChart('chartRanking', 'bar', {
-        labels: sortedItems.map(i => i[0].replace(/_/g, ' ')),
-        datasets: [{
-            label: 'Empreendimentos com este item',
-            data: sortedItems.map(i => i[1]),
-            backgroundColor: 'rgba(59, 130, 246, 0.7)',
-            borderColor: 'rgba(29, 78, 216, 1)',
-            borderWidth: 1
-        }]
-    }, { indexAxis: 'y' });
-
-    // Chart 2: Categorias (Pie/Doughnut)
-    const sortedCats = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
-    drawChart('chartCategoria', 'doughnut', {
-        labels: sortedCats.map(c => c[0]),
-        datasets: [{
-            data: sortedCats.map(c => c[1]),
-            backgroundColor: [
-                '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
-                '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'
-            ],
-            borderWidth: 0
-        }]
-    }, { maintainAspectRatio: false });
+    const btnClear = document.getElementById('btn-clear-filters');
+    if (btnClear) {
+        btnClear.addEventListener('click', limparTodosOsFiltros);
+    }
 }
 
-function drawChart(canvasId, type, data, extraOptions = {}) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    if (charts[canvasId]) {
-        charts[canvasId].destroy();
-    }
-    
-    charts[canvasId] = new Chart(ctx, {
-        type: type,
-        data: data,
+// 5. CRIAÇÃO DINÂMICA DAS OPÇÕES DOS SELECTS (DISTINCT)
+function inicializarFiltrosDinamicos() {
+    popularSelectUnico('filter-bairro', 'Bairro');
+    popularSelectUnico('filter-tipologia', 'Tipologia');
+    popularSelectUnico('filter-status', 'Status');
+    popularSelectUnico('filter-construtora', 'Construtora');
+}
+
+function popularSelectUnico(idElemento, nomeColuna) {
+    const select = document.getElementById(idElemento);
+    if (!select) return;
+
+    // Extrai valores únicos ignorando registros vazios
+    const valoresUnicos = [...new Set(dadosOriginais.map(item => item[nomeColuna]).filter(v => v && v.trim() !== ''))];
+    valoresUnicos.sort();
+
+    // Mantém apenas a primeira opção ("Todos") e adiciona as novas
+    select.innerHTML = `<option value="">Todos</option>`;
+    valoresUnicos.forEach(valor => {
+        const opt = document.createElement('option');
+        opt.value = valor;
+        opt.textContent = valor;
+        select.appendChild(opt);
+    });
+}
+
+// 6. PIPELINE DE FILTRAGEM DE DADOS
+function aplicarFiltros() {
+    const fBairro = document.getElementById('filter-bairro')?.value || '';
+    const fTipologia = document.getElementById('filter-tipologia')?.value || '';
+    const fStatus = document.getElementById('filter-status')?.value || '';
+    const fConstrutora = document.getElementById('filter-construtora')?.value || '';
+
+    dadosFiltrados = dadosOriginais.filter(item => {
+        return (fBairro === '' || item.Bairro === fBairro) &&
+               (fTipologia === '' || item.Tipologia === fTipologia) &&
+               (fStatus === '' || item.Status === fStatus) &&
+               (fConstrutora === '' || item.Construtora === fConstrutora);
+    });
+
+    atualizarDashboard();
+}
+
+function limparTodosOsFiltros() {
+    ['filter-bairro', 'filter-tipologia', 'filter-status', 'filter-construtora'].forEach(id => {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.value = '';
+    });
+    dadosFiltrados = [...dadosOriginais];
+    atualizarDashboard();
+}
+
+// 7. ATUALIZAÇÃO DA CAMADA VISUAL (RE-RENDER)
+function atualizarDashboard() {
+    atualizarKPIs();
+    renderizarGraficoBairros();
+    renderizarGraficoStatus();
+    renderizarPainelComparativo();
+}
+
+// 8. CÁLCULO DE KPIS COM ESTRUTURAS DISTINCT (CHAVE DA CORREÇÃO)
+function atualizarKPIs() {
+    // A) Mapeia empreendimentos de forma única por nome
+    const empreendimentosUnicos = [...new Set(dadosFiltrados.map(item => item.Empreendimento))];
+    const totalEmpreendimentos = empreendimentosUnicos.length;
+
+    // B) Mapeia bairros de forma única
+    const totalBairros = [...new Set(dadosFiltrados.map(item => item.Bairro))].length;
+
+    // C) Mapeia construtoras de forma única
+    const totalConstrutoras = [...new Set(dadosFiltrados.map(item => item.Construtora))].length;
+
+    // D) Média Real de Lazer por Empreendimento (Ignorando inflação de linhas duplicadas)
+    let somaLazerProjetosUnicos = 0;
+    const mapeamentoJaProcessado = new Set();
+
+    dadosFiltrados.forEach(item => {
+        if (!mapeamentoJaProcessado.has(item.Empreendimento)) {
+            mapeamentoJaProcessado.add(item.Empreendimento);
+            somaLazerProjetosUnicos += parseInt(item.Total_Lazer || 0, 10);
+        }
+    });
+
+    const mediaLazer = totalEmpreendimentos > 0 ? (somaLazerProjetosUnicos / totalEmpreendimentos).toFixed(1) : 0;
+
+    // Vinculação com os IDs do arquivo HTML
+    if(document.getElementById('kpi-total-empreendimentos')) document.getElementById('kpi-total-empreendimentos').textContent = totalEmpreendimentos;
+    if(document.getElementById('kpi-total-bairros')) document.getElementById('kpi-total-bairros').textContent = totalBairros;
+    if(document.getElementById('kpi-total-construtoras')) document.getElementById('kpi-total-construtoras').textContent = totalConstrutoras;
+    if(document.getElementById('kpi-media-lazer')) document.getElementById('kpi-media-lazer').textContent = mediaLazer;
+}
+
+// 9. RENDERIZAÇÃO DOS GRÁFICOS SEM DUPLICIDADE CONTABILIZADA
+function renderizarGraficoBairros() {
+    const ctx = document.getElementById('chart-bairros');
+    if (!ctx) return;
+
+    // Agrupa empreendimentos de forma única por Bairro usando Sets
+    const mapaBairros = {};
+    dadosFiltrados.forEach(item => {
+        if (!mapaBairros[item.Bairro]) {
+            mapaBairros[item.Bairro] = new Set();
+        }
+        mapaBairros[item.Bairro].add(item.Empreendimento);
+    });
+
+    const labels = Object.keys(mapaBairros);
+    const valoresReal = Object.values(mapaBairros).map(set => set.size);
+
+    if (graficoBairrosInstance) graficoBairrosInstance.destroy();
+
+    graficoBairrosInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Qtd. de Empreendimentos',
+                data: valoresReal,
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            }]
+        },
         options: {
             responsive: true,
-            plugins: {
-                legend: {
-                    position: type === 'doughnut' ? 'right' : 'top',
-                    display: type === 'doughnut'
-                }
-            },
-            ...extraOptions
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
     });
 }
 
-function updateProfileCard() {
-    const projName = document.getElementById('select-profile').value;
-    const card = document.getElementById('profile-card');
+function renderizarGraficoStatus() {
+    const ctx = document.getElementById('chart-status');
+    if (!ctx) return;
+
+    // Agrupa empreendimentos de forma única por Status usando Sets
+    const mapaStatus = {};
+    dadosFiltrados.forEach(item => {
+        if (!mapaStatus[item.Status]) {
+            mapaStatus[item.Status] = new Set();
+        }
+        mapaStatus[item.Status].add(item.Empreendimento);
+    });
+
+    const labels = Object.keys(mapaStatus);
+    const valoresReal = Object.values(mapaStatus).map(set => set.size);
+
+    if (graficoStatusInstance) graficoStatusInstance.destroy();
+
+    graficoStatusInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: valoresReal,
+                backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+        }
+    });
+}
+
+// 10. ARQUITETURA DA MATRIZ COMPARATIVA (TABELA DINÂMICA)
+function renderizarPainelComparativo() {
+    const head = document.getElementById('compare-head');
+    const body = document.getElementById('compare-body');
+    const checkboxesContainer = document.getElementById('compare-checkboxes');
     
-    if (!projName) {
-        card.classList.add('hidden');
-        return;
-    }
+    if (!head || !body) return;
 
-    const proj = globalData.find(d => d.Empreendimento === projName);
-    if (!proj) return;
+    // Consolida apenas 1 registro por nome de empreendimento para popular as colunas da tabela
+    const listaProjetosExibicao = [];
+    const nomesProcessados = new Set();
 
-    document.getElementById('prof-nome').innerText = proj.Empreendimento;
-    document.getElementById('prof-construtora').innerText = proj.Construtora || 'N/I';
-    document.getElementById('prof-bairro').innerText = proj.Bairro || 'N/I';
-    document.getElementById('prof-tipo').innerText = proj.Tipologia || 'N/I';
-    document.getElementById('prof-publico').innerText = proj.Publico || 'N/I';
-    document.getElementById('prof-entrega').innerText = proj.Entrega || 'N/I';
-    document.getElementById('prof-status').innerText = proj.Status || 'N/I';
-
-    const divItens = document.getElementById('prof-itens');
-    divItens.innerHTML = '';
-    
-    LAZER_COLUMNS.forEach(col => {
-        if (proj[col] && proj[col].trim() !== '') {
-            const span = document.createElement('span');
-            span.className = 'badge-item';
-            span.innerText = proj[col] !== '1' ? proj[col] : col.replace(/_/g, ' '); 
-            divItens.appendChild(span);
+    dadosFiltrados.forEach(item => {
+        if (!nomesProcessados.has(item.Empreendimento)) {
+            nomesProcessados.add(item.Empreendimento);
+            listaProjetosExibicao.push(item);
         }
     });
 
-    card.classList.remove('hidden');
-}
-
-function updateComparisonTable() {
-    const checkboxes = document.querySelectorAll('.compare-chk:checked');
-    const thead = document.getElementById('compare-head');
-    const tbody = document.getElementById('compare-body');
-    
-    if (checkboxes.length > 3) {
-        alert("Por favor, selecione no máximo 3 empreendimentos para comparar.");
-        // Uncheck the last one clicked
-        checkboxes[checkboxes.length - 1].checked = false;
-        return;
-    }
-
-    const selectedProjects = Array.from(checkboxes).map(chk => 
-        globalData.find(d => d.Empreendimento === chk.value)
-    );
-
-    // Reset Table
-    thead.innerHTML = `<tr><th class="px-4 py-3 rounded-tl-lg bg-slate-100">Atributo / Item</th></tr>`;
-    tbody.innerHTML = '';
-
-    if (selectedProjects.length === 0) {
-        tbody.innerHTML = `<tr><td class="px-4 py-4 text-center text-gray-400 italic">Nenhum empreendimento selecionado.</td></tr>`;
-        return;
-    }
-
-    // Build Headers
-    const trHead = thead.querySelector('tr');
-    selectedProjects.forEach(proj => {
-        const th = document.createElement('th');
-        th.className = "px-4 py-3 bg-slate-100 text-blue-800 border-l border-white";
-        th.innerText = proj.Empreendimento;
-        trHead.appendChild(th);
-    });
-
-    // Build Rows: Infos Básicas
-    const basicAttributes = [
-        { key: 'Construtora', label: 'Construtora' },
-        { key: 'Bairro', label: 'Bairro' },
-        { key: 'Tipologia', label: 'Tipologia' },
-        { key: 'Status', label: 'Status' },
-        { key: 'Total_Lazer', label: 'Total Itens Lazer' }
-    ];
-
-    basicAttributes.forEach(attr => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="px-4 py-2 font-semibold text-slate-700 bg-slate-50">${attr.label}</td>`;
-        selectedProjects.forEach(proj => {
-            tr.innerHTML += `<td class="px-4 py-2 border-l border-slate-100">${proj[attr.key] || '-'}</td>`;
+    // Se o container de checkboxes existir, renderiza as opções de seleção de colunas
+    if (checkboxesContainer && checkboxesContainer.children.length === 0) {
+        listaProjetosExibicao.forEach((p, idx) => {
+            const label = document.createElement('label');
+            label.className = 'flex items-center space-x-2 p-2 rounded hover:bg-gray-100 cursor-pointer text-sm text-gray-700';
+            label.innerHTML = `
+                <input type="checkbox" value="${p.Empreendimento}" checked class="rounded text-blue-600 focus:ring-blue-500">
+                <span class="truncate">${p.Empreendimento}</span>
+            `;
+            // Escutador para atualizar a visibilidade das colunas ao clicar
+            label.querySelector('input').addEventListener('change', () => alternarColunasTabela());
+            checkboxesContainer.appendChild(label);
         });
-        tbody.appendChild(tr);
+    }
+
+    // A) CONSTRUÇÃO DO CABEÇALHO DA TABELA
+    let htmlHead = `<tr><th class="text-left bg-gray-100 z-20 sticky left-0 font-semibold text-gray-600">Atributos / Lazer</th>`;
+    listaProjetosExibicao.forEach(p => {
+        htmlHead += `<th class="col-emp-${-1}" data-emp="${p.Empreendimento}">${p.Empreendimento}</th>`;
+    });
+    htmlHead += `</tr>`;
+    head.innerHTML = htmlHead;
+
+    // B) CONSTRUÇÃO DAS LINHAS DE METADADOS MACRO
+    let htmlBody = ``;
+    
+    // Metadado: Construtora
+    htmlBody += `<tr><td class="font-semibold bg-gray-50 sticky left-0 z-10">Construtora</td>`;
+    listaProjetosExibicao.forEach(p => { htmlBody += `<td data-emp="${p.Empreendimento}">${p.Construtora}</td>`; });
+    htmlBody += `</tr>`;
+
+    // Metadado: Bairro
+    htmlBody += `<tr><td class="font-semibold bg-gray-50 sticky left-0 z-10">Bairro</td>`;
+    listaProjetosExibicao.forEach(p => { htmlBody += `<td data-emp="${p.Empreendimento}">${p.Bairro}</td>`; });
+    htmlBody += `</tr>`;
+
+    // Metadado: Status da Obra
+    htmlBody += `<tr><td class="font-semibold bg-gray-50 sticky left-0 z-10">Status</td>`;
+    listaProjetosExibicao.forEach(p => { htmlBody += `<td data-emp="${p.Empreendimento}">${p.Status}</td>`; });
+    htmlBody += `</tr>`;
+
+    // C) VARREDURA DINÂMICA DA MATRIZ DE ITENS DE LAZER
+    colunasLazer.forEach(coluna => {
+        // Formata o nome técnico da coluna (ex: "Pet_Care" vira "Pet Care")
+        const nomeFormatado = coluna.replace(/_/g, ' ');
+        htmlBody += `<tr><td class="sticky left-0 bg-white font-medium text-gray-700 shadow-sm z-10">${nomeFormatado}</td>`;
+        
+        listaProjetosExibicao.forEach(p => {
+            const valorCelula = p[coluna] ? p[coluna].trim() : '';
+            if (valorCelula !== '') {
+                // Se o campo possui conteúdo, exibe o marcador positivo (Sim)
+                htmlBody += `<td class="text-center td-feature-yes" data-emp="${p.Empreendimento}" title="${valorCelula}">✔</td>`;
+            } else {
+                // Se o campo está em branco, exibe o marcador de ausência (Não)
+                htmlBody += `<td class="text-center td-feature-no text-gray-300" data-emp="${p.Empreendimento}">─</td>`;
+            }
+        });
+        htmlBody += `</tr>`;
     });
 
-    // Build Rows: Itens de Lazer
-    // Apenas mostrar a linha se pelo menos 1 dos projetos selecionados tiver o item
-    LAZER_COLUMNS.forEach(col => {
-        const anyHasItem = selectedProjects.some(proj => proj[col] && proj[col].trim() !== '');
+    body.innerHTML = htmlBody;
+    alternarColunasTabela(); // Aplica o estado inicial de visibilidade
+}
+
+// 11. CONTROLE DE VISIBILIDADE DE COLUNAS NA MATRIZ COMPARATIVA
+function alternarColunasTabela() {
+    const checkboxesContainer = document.getElementById('compare-checkboxes');
+    if (!checkboxesContainer) return;
+
+    const checkboxes = checkboxesContainer.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const nomeEmp = cb.value;
+        const visivel = cb.checked;
         
-        if (anyHasItem) {
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-blue-50/50 transition-colors";
-            tr.innerHTML = `<td class="px-4 py-2 text-slate-600 pl-6 border-t border-slate-50"><i class="fa-solid fa-check text-gray-300 mr-2 text-[10px]"></i> ${col.replace(/_/g, ' ')}</td>`;
-            
-            selectedProjects.forEach(proj => {
-                const hasItem = proj[col] && proj[col].trim() !== '';
-                const displayVal = hasItem ? '<i class="fa-solid fa-circle-check td-feature-yes"></i>' : '<i class="fa-solid fa-minus td-feature-no"></i>';
-                tr.innerHTML += `<td class="px-4 py-2 border-l border-slate-50 text-center">${displayVal}</td>`;
-            });
-            tbody.appendChild(tr);
-        }
+        // Seleciona todas as células (th e td) que pertencem a este empreendimento específico
+        const celulas = document.querySelectorAll(`[data-emp="${nomeEmp}"]`);
+        celulas.forEach(celula => {
+            if (visivel) {
+                celula.style.display = '';
+            } else {
+                celula.style.display = 'none';
+            }
+        });
     });
 }
