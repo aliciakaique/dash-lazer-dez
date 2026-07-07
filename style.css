@@ -1,0 +1,306 @@
+/* ==========================================================================
+   MARKET INTEL DASHBOARD - STYLESHEET COMPLETO E PROFISSIONAL
+   Autor: Engenheiro de Software Front-End Sênior
+   Objetivo: Identidade visual corporativa, premium e responsiva para o mercado imobiliário.
+   ========================================================================== */
+
+/* 1. SISTEMA DE DESIGN & VARIÁVEIS RESILIENTES
+   ========================================================================== */
+:root {
+    /* Paleta de Cores Primária (Corporativa / Alta Incorporação) */
+    --color-primary-dark: #0f172a;  /* Slate 900 - Cabeçalhos e marca */
+    --color-primary-light: #1e3a8a; /* Blue 900 - Destaques e títulos de seções */
+    --color-accent: #3b82f6;        /* Blue 500 - Elementos interativos e foco */
+    --color-accent-hover: #2563eb;  /* Blue 600 */
+    
+    /* Cores de Status e Categorias */
+    --color-success: #059669;       /* Emerald 600 - Itens incluídos (Sim) */
+    --color-success-bg: #ecfdf5;    /* Emerald 50 - Fundo de itens incluídos */
+    --color-danger: #dc2626;        /* Red 600 - Alertas/Erros */
+    --color-warning: #d97706;       /* Amber 600 - Lançamentos/Status intermediário */
+    --color-muted: #94a3b8;         /* Slate 400 - Textos secundários e desabilitados */
+    --color-muted-light: #cbd5e1;   /* Slate 300 - Ícones de ausência (Não) */
+
+    /* Superfícies e Fundos */
+    --bg-canvas: #f8fafc;           /* Slate 50 - Fundo geral da aplicação */
+    --bg-surface: #ffffff;          /* Branco Puro - Cards e tabelas */
+    --bg-surface-alt: #f1f5f9;      /* Slate 100 - Linhas alternadas e cabeçalhos de tabela */
+    --border-color: #e2e8f0;        /* Slate 200 - Divisores discretos */
+
+    /* Tipografia e Espaçamento */
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.04), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 2. CONFIGURAÇÕES GERAIS & RESETS
+   ========================================================================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: #334155; /* Slate 700 */
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Otimização de Rolagem */
+html {
+    scroll-behavior: smooth;
+}
+
+/* 3. ARQUITETURA DE CARDS E COMPONENTES (ELEVATION)
+   ========================================================================== */
+.bg-white {
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-smooth);
+}
+
+/* Efeito de elevação sutil em cards dinâmicos */
+.bg-white:hover {
+    box-shadow: var(--shadow-md);
+    border-color: #cbd5e1;
+}
+
+/* Estilização dos Cards de KPI */
+.border-l-4 {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+}
+
+/* 4. FORMULÁRIOS, FILTROS E ELEMENTOS INTERATIVOS
+   ========================================================================== */
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    padding-right: 2.5rem !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-sm) !important;
+    transition: var(--transition-smooth) !important;
+}
+
+select:focus {
+    outline: none !important;
+    border-color: var(--color-accent) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+    background-color: var(--bg-surface);
+}
+
+/* Botão Limpar Filtros */
+#btn-clear-filters {
+    border: 1px solid var(--border-color);
+    transition: var(--transition-smooth);
+}
+#btn-clear-filters:hover {
+    background-color: var(--color-primary-dark) !important;
+    color: var(--bg-surface) !important;
+    border-color: var(--color-primary-dark);
+}
+
+/* Checkboxes da Área de Seleção para Comparação */
+#compare-checkboxes {
+    border: 1px solid var(--border-color);
+    background-color: #fafafa;
+}
+
+#compare-checkboxes label {
+    transition: var(--transition-smooth);
+    user-select: none;
+}
+
+#compare-checkboxes label:has(input:checked) {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e40af;
+    font-weight: 500;
+}
+
+/* Customização da Barra de Rolagem Interna dos Checkboxes */
+#compare-checkboxes::-webkit-scrollbar {
+    width: 6px;
+}
+#compare-checkboxes::-webkit-scrollbar-track {
+    background: var(--bg-surface-alt);
+    border-radius: 4px;
+}
+#compare-checkboxes::-webkit-scrollbar-thumb {
+    background: var(--color-muted-light);
+    border-radius: 4px;
+}
+#compare-checkboxes::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted);
+}
+
+/* 5. ARQUITETURA DA TABELA MÓDULO COMPARADOR
+   ========================================================================== */
+.overflow-x-auto {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+/* Cabeçalho Fixo (Sticky) se necessário e Estilização */
+#compare-head th {
+    background-color: var(--bg-surface-alt);
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.875rem 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+#compare-body tr {
+    transition: var(--transition-smooth);
+}
+
+#compare-body tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+#compare-body tr:hover {
+    background-color: #f1f5f9 !important;
+}
+
+#compare-body td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: #475569; /* Slate 600 */
+}
+
+/* Célula de Atributo/Nome do Item */
+#compare-body td:first-child {
+    font-weight: 500;
+    color: var(--color-primary-dark);
+    background-color: var(--bg-surface);
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+}
+
+/* Destaque Visual para Presença e Ausência de Itens de Lazer */
+.td-feature-yes {
+    color: var(--color-success) !important;
+    font-size: 1.15rem;
+    filter: drop-shadow(0 1px 1px rgba(5, 150, 105, 0.1));
+}
+
+.td-feature-no {
+    color: var(--color-muted-light) !important;
+    font-size: 0.9rem;
+}
+
+/* Linhas que representam atributos macro (Ex: Construtora, Bairro) */
+#compare-body tr:has(td.font-semibold) {
+    background-color: #f8fafc;
+}
+#compare-body tr:has(td.font-semibold) td {
+    font-size: 0.825rem;
+    color: #334155;
+}
+
+/* 6. DINÂMICA DE TAGS (BADGES) DO PERFIL DO CONCORRENTE
+   ========================================================================== */
+.badge-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    background-color: var(--bg-canvas);
+    color: #475569;
+    border-radius: 50px;
+    font-size: 0.725rem;
+    font-weight: 600;
+    margin-right: 0.375rem;
+    margin-bottom: 0.375rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    transition: var(--transition-smooth);
+}
+
+/* Efeito Premium de Feedback Visual ao passar o mouse nas tags de lazer */
+.badge-item:hover {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+    transform: scale(1.03);
+}
+
+/* 7. AJUSTES DE CONTAINERS DE GRÁFICOS (CHART RESPONSIVENESS)
+   ========================================================================== */
+canvas {
+    max-width: 100% !important;
+}
+
+/* Garantia de proporção e leitura limpa de tooltips */
+.relative.h-72 {
+    height: 18rem !important;
+}
+
+/* 8. ANIMAÇÕES DE TRANSIÇÃO E ESTADOS DE LOADING/VAZIO
+   ========================================================================== */
+#profile-card {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Elementos de Destaque Sutil para KPIs */
+#kpi-top {
+    text-transform: capitalize;
+}
+
+/* Responsividade de Impressão (Caso queiram exportar em PDF via navegador) */
+@media print {
+    body {
+        background-color: #fff;
+        font-size: 10pt;
+    }
+    header, #btn-clear-filters, #compare-checkboxes, .filters-section {
+        display: none !important;
+    }
+    .bg-white {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+    table {
+        page-break-inside: auto;
+    }
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
